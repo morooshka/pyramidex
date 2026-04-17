@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__neo4j-cloud__write-cypher",
+      "Bash(uv *)"
+    ]
+  }
+}

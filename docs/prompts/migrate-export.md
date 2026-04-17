@@ -1,6 +1,8 @@
 # Migration Export Prompt
 
-Used by `pyramidex migrate` step 1. Passed to `claude -p` to produce `dump.yaml`.
+Used by `pyramidex init` step 1. Passed to the AI to produce `dump.yaml`.
+Before classifying any content, read `docs/knowledge-design-guide.md` and use it as the
+quality standard for every classification decision.
 
 ---
 
@@ -27,17 +29,22 @@ read them. If it describes a different mechanism, follow it.
 
 ## Classification rules
 
-Map each piece of configuration to the most appropriate type using the following standard types
-as a guide. These are well-known types that have proven useful across many users:
+The target schema is authoritative. Map all source content to the standard types below
+regardless of how the source organises it — the source structure is irrelevant. What matters
+is the meaning of the content, not the form it was stored in.
 
-- **Section + Rules** — a named group of style or behaviour rules (e.g. coding standards, formatting
-  preferences, operational constraints). Each rule is an ordered, self-contained instruction.
-- **Memory** — a retained piece of knowledge the AI should carry across sessions. Has a subtype:
-  - `Feedback` — a correction, confirmed behaviour, or explicit preference from past interactions
-  - `Project` — context about ongoing work: infrastructure, active incidents, decisions, deadlines
-- **Workflow** — a structured process triggered by a phrase or event. Has ordered steps and
-  optional trigger phrases. May have associated configuration data (e.g. API field IDs, project
-  metadata) that should be preserved as nested child nodes.
+Standard types:
+
+- **Rule** — a single behavioral instruction or constraint. Atomic: one rule, one requirement.
+  Has a `name` (short label) and `text` (the instruction itself).
+- **Skill** — a reusable prompt or slash command. Has a `name`, `description`, and `prompt`
+  (the full prompt text).
+- **Memory** — a retained piece of knowledge the AI should carry across sessions. Has `name`,
+  `body` (the knowledge), `why` (the reason it matters), and `how_to_apply` (when it applies).
+- **Workflow** — a structured process triggered by a user request. Has ordered steps and
+  optional trigger phrases. Any associated configuration data (e.g. API field IDs, project
+  metadata, option IDs) must be serialised as a JSON string in the `config` property on the
+  Workflow node itself — not as nested child nodes.
 
 If content does not fit any standard type, do not force it. Infer a new type from the content
 itself: name it descriptively, define its properties, and include it in the schema. Every custom
@@ -45,14 +52,26 @@ type you invent must appear in the `schema` section so the loader knows how to c
 
 ## Domain assignment
 
-Every Section, Memory, and Workflow must be tagged with a domain that describes when it is
-relevant. Assign the most specific domain that fits. Common values: `code`, `shell`, `deploy`,
-`python`, `ticket`, `infra`, `formatting`. Add new domain values as needed — the domain list
-in the output is authoritative.
+Every node must declare a `domains` list. Domains serve two purposes:
 
-For each domain, write a one-line `description` that summarises when it is relevant, inferred
-from the content tagged to it. The description will be stored on the Domain node and used by
-the AI to match tasks to the correct domain at runtime.
+1. **Type domain** — always include the built-in type domain for the node's type:
+   `rules`, `skills`, `memories`, or `workflows`. This enables listing all nodes of a type
+   on request.
+2. **Contextual domain(s)** — add one or more domains describing when this node is relevant.
+   Common values: `code`, `shell`, `deploy`, `python`, `ticket`, `infra`, `formatting`.
+   Add new domain values as needed — the domain list in the output is authoritative.
+
+Example: a rule about shell variable syntax gets `domains: [rules, shell]`.
+Example: a workflow for ticket creation gets `domains: [workflows, ticket]`.
+
+For each contextual domain, write a one-line `description` that summarises when it is relevant,
+inferred from the content tagged to it. Type domain descriptions are fixed — do not infer them.
+
+Fixed type domain descriptions:
+- `rules` — "All behavioral rules — load when the user asks to list or review rules"
+- `skills` — "All skills — load when the user asks to list available skills or slash commands"
+- `memories` — "All retained memories — load when the user asks to review or manage memories"
+- `workflows` — "All workflows — load when the user asks to follow a process or list available procedures"
 
 ## Output format
 
@@ -68,14 +87,14 @@ meta:
 
 domains:
   - name: <string>          # complete list of all domains used anywhere in the data section
-    description: <string>   # one-line description of when this domain is relevant, inferred from its content
+    description: <string>   # one-line description; use fixed descriptions for type domains
 
 schema:
   - key: <string>              # matches a top-level key in the data section
-    node_label: <string>       # Neo4j node label to apply (single label)
+    node_label: <string>       # Neo4j node label to apply
     root_rel: <string>         # relationship name from Root node to this node type
-    subtype_field: <string>    # optional — property name whose value becomes an additional label
-    properties: [<string>]     # all properties that appear on nodes of this type
+    domain_rel: IN_DOMAIN      # always present — loader creates [:IN_DOMAIN] rels from domains list
+    properties: [<string>]     # all properties that appear on nodes of this type (excluding domains)
     children:                  # optional — nested node types owned by this node
       - key: <string>
         node_label: <string>
@@ -86,6 +105,7 @@ schema:
 data:
   <key>:                       # top-level key matching schema[*].key
     - <property>: <value>
+      domains: [<string>]      # list of domain names — loader creates [:IN_DOMAIN] for each
       <child_key>:             # nested key matching schema[*].children[*].key
         - <property>: <value>
 ```
@@ -93,19 +113,16 @@ data:
 ## Schema rules
 
 1. Every node type present in `data` must have a corresponding entry in `schema`.
-2. Every property that appears on any node must be listed in `schema[*].properties` for that type.
-3. If a node type uses subtypes (e.g. Memory with Feedback/Project sublabels), declare
-   `subtype_field` in the schema and set the corresponding property on each data item.
-4. Nested child nodes (e.g. Rules under Section, Steps under Workflow, custom config under a
-   Workflow) must be declared in `children` and appear as nested lists in the data.
-5. The `root_rel` value should follow Neo4j naming conventions: uppercase with underscores,
-   prefixed with `HAS_` (e.g. `HAS_SECTION`, `HAS_MEMORY`).
+2. Every property that appears on any node must be listed in `schema[*].properties` for that
+   type. Do not list `domains` in properties — it is handled by `domain_rel`.
+3. Nested child nodes (e.g. Steps under Workflow) must be declared in `children` and appear
+   as nested lists in the data.
+4. The `root_rel` value should follow Neo4j naming conventions: uppercase with underscores,
+   prefixed with `HAS_` (e.g. `HAS_RULE`, `HAS_MEMORY`).
 
 ## Quality requirements
 
-- Every node must have a `name` or equivalent identifying property.
-- Descriptions must be concise and written in the third person (e.g. "Rules for formatting
-  markdown output", not "These are rules about...").
+- Every node must have a `name` property.
 - Do not invent or infer content that is not present in the source files. Export only what exists.
 - Do not drop properties that appear in the source. If a property has no clear mapping, include
   it as-is on the most appropriate node type and add it to the schema.

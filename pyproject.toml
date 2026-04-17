@@ -1,7 +1,20 @@
 [project]
 name = "pyramidex"
 version = "0.1.0"
-description = "Add your description here"
+description = "Replace static AI config files with a self-describing knowledge graph"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "neo4j>=5.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+pyramidex = "pyramidex.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyramidex"]
