@@ -72,9 +72,12 @@ If init exits with an error, show the output and stop — do not continue.
 
 ## Step 7 — Confirm setup is complete
 
-Verify:
-1. `~/.claude/CLAUDE.md` is now a symlink pointing to `assets/claude-bootstrap.md`
-2. `dump.yaml` has been deleted from the repo root
+Verify that `~/.claude/CLAUDE.md` is now a symlink pointing to `assets/claude-bootstrap.md`.
+
+Ask the user: "Init is complete. Delete dump.yaml now? It contains your full configuration
+in plaintext. You can always re-export it later."
+
+Delete `dump.yaml` only if the user answers yes. Do not delete it otherwise.
 
 Tell the user:
   "Setup complete. Your knowledge graph is live. Open a new Claude Code session anywhere

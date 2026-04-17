@@ -45,7 +45,6 @@ def cmd_init(_args):
     print("Creating CLAUDE.md symlink...")
     create_symlink()
 
-    DUMP.unlink()
     print("Done.")
 
 

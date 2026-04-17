@@ -27,6 +27,21 @@ user's configuration. Do not assume any particular source type or location — t
 in that file are authoritative. If it points to a database, query it. If it references files,
 read them. If it describes a different mechanism, follow it.
 
+When the source is a graph database, apply this retrieval protocol:
+
+1. Run a schema discovery query (e.g. `CALL db.schema.visualization()` or `CALL apoc.meta.graph()`)
+   to identify all node labels and relationship types present. If schema introspection is
+   unavailable, run `MATCH (n) RETURN DISTINCT labels(n)` and
+   `MATCH ()-[r]->() RETURN DISTINCT type(r)` separately.
+2. For each node label, run a dedicated query that follows all outgoing relationships to their
+   full depth. Never assume a single query returns the complete tree. Example pattern:
+   `MATCH (root)-[:HAS_X]->(parent) OPTIONAL MATCH (parent)-[:HAS_Y]->(child) RETURN parent, collect(child)`.
+3. Before writing the dump, verify that every parent node's child collection is non-empty
+   where children are expected. If a collection is empty, re-query before concluding there
+   is no data — empty results on a first query are a retrieval failure, not evidence of absence.
+4. Leaf nodes (rules, steps, triggers, field options, etc.) must be fetched explicitly.
+   They will never appear in a query that only matches the root or parent nodes.
+
 ## Classification rules
 
 The target schema is authoritative. Map all source content to the standard types below
