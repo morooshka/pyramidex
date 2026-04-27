@@ -1,0 +1,27 @@
+# Pyramidex configuration - single source of truth for runtime settings.
+#
+# Location:    ~/.pyramidex/config.yaml
+# Permissions: 0600 - contains plaintext credentials, do not commit.
+#
+# Pyramidex derives its entries in ~/.claude/settings.json (the neo4j-cloud MCP
+# server env, the reindex PostToolUse hook, and the read-cypher allow entry)
+# from this file. Edit the values below and re-run `pyramidex init` or
+# `pyramidex set-credentials` to propagate changes. Keys not managed by
+# Pyramidex in settings.json are preserved.
+
+neo4j:
+  # Bolt URI of the Neo4j instance. For Aura free tier this looks like
+  # `neo4j+s://<instance-id>.databases.neo4j.io`. Required.
+  uri: ""
+
+  # Neo4j username. For Aura free tier this is the instance ID (same as the
+  # subdomain of `uri`). Required.
+  username: ""
+
+  # Neo4j password. Shown only once in the Aura console at instance creation.
+  # Required.
+  password: ""
+
+  # Database name. For Aura this is the instance ID (same as `username`).
+  # Optional - leave empty to use the driver's default database.
+  database: ""
