@@ -34,6 +34,11 @@ root:
     RETURN d.name AS name, d.description AS description
 
   instructions: |
+    Persistence - the single source of truth:
+      All rules, preferences, and workflows live in this graph. Save every new or updated
+      setting here immediately via the `add-content` workflow. Never store settings in
+      conversation context or local files.
+
     Session bootstrap - execute once immediately after reading this node, before responding to anything:
       Run the query in `catalog`. Retain the result for the entire session. Never re-run it.
       Use `schema` as the authoritative reference for all graph queries -
