@@ -1,4 +1,4 @@
-# Pyramidex — Project Conventions
+# Pyramidex - Project Conventions
 
 ## File naming
 

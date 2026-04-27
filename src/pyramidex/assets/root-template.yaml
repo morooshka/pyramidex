@@ -1,0 +1,141 @@
+# Single source of truth for Root node initialisation.
+# pyramidex init reads this file and writes all values to the graph.
+# Any change to these values must ship as a versioned migration in migrations/.
+
+root:
+  version: 1
+
+  schema: |
+    nodes:
+      Root: [version, schema, catalog, instructions]
+      Domain: [name, description]
+      Rule: [name, text]
+      Skill: [name, description, prompt]
+      Memory: [name, body, why, how_to_apply]
+      Workflow: [name, description, config]
+      Trigger: [idx, text]
+      Step: [idx, text, notes]
+
+    relationships:
+      - {type: HAS_DOMAIN, from: Root, to: Domain}
+      - {type: HAS_RULE, from: Root, to: Rule}
+      - {type: HAS_SKILL, from: Root, to: Skill}
+      - {type: HAS_MEMORY, from: Root, to: Memory}
+      - {type: HAS_WORKFLOW, from: Root, to: Workflow}
+      - {type: HAS_TRIGGER, from: Workflow, to: Trigger}
+      - {type: HAS_STEP, from: Workflow, to: Step}
+      - {type: IN_DOMAIN, from: Rule, to: Domain}
+      - {type: IN_DOMAIN, from: Skill, to: Domain}
+      - {type: IN_DOMAIN, from: Memory, to: Domain}
+      - {type: IN_DOMAIN, from: Workflow, to: Domain}
+
+  catalog: |
+    MATCH (r:Root)-[:HAS_DOMAIN]->(d:Domain)
+    RETURN d.name AS name, d.description AS description
+
+  instructions: |
+    Session bootstrap - execute once immediately after reading this node, before responding to anything:
+      Run the query in `catalog`. Retain the result for the entire session. Never re-run it.
+      Use `schema` as the authoritative reference for all graph queries -
+      node labels, properties, and relationship types.
+
+    Authoring gate - runs before any write-cypher that modifies the graph, including edits and deletes:
+      Load the `authoring` domain (if not cached) and follow its `add-content` workflow.
+      Its first step decides whether the change needs curation or should proceed as-is.
+      Exception: do not re-trigger the gate while `add-content` is the active context -
+      its own writes in steps 4-6 must pass through.
+
+    For each task:
+      1. Match the task against every domain description in the cached index. Load every
+         domain that matches - multiple matches are normal. Tier semantics:
+           - [broad]    load when the task touches the domain's surface
+           - [specific] load on concrete evidence (language, tool, environment)
+           - [meta]     load only when the user explicitly asks to list or review that type
+         If no contextual domain matches but the task touches files, load the [broad] domains
+         as a floor.
+      2. Before loading, check the session cache - skip any domain already loaded.
+      3. For each unloaded matching domain, fetch its content:
+           MATCH (r:Root)-[rel]->(n)-[:IN_DOMAIN]->(:Domain {name: $d})
+           WHERE type(rel) IN ['HAS_RULE','HAS_MEMORY','HAS_WORKFLOW','HAS_SKILL']
+           RETURN type(rel) AS kind, n
+         Mark the domain as loaded after the fetch.
+      4. Apply the loaded rules, memories, skills, and workflows. If they seem off-topic for
+         the task, re-classify and load one more domain.
+
+# Type domains and system-provided contextual domains created by pyramidex init on
+# every fresh install. Additional contextual domains (code, shell, deploy, etc.)
+# come from pyramidex migrate.
+domains:
+  - name: rules
+    description: "[meta] Load when the user asks to list or review rules"
+  - name: skills
+    description: "[meta] Load when the user asks to list available skills or slash commands"
+  - name: memories
+    description: "[meta] Load when the user asks to review or manage memories"
+  - name: workflows
+    description: "[meta] Load when the user asks to follow a process or list available procedures"
+  - name: authoring
+    description: >-
+      [broad] Load before any write-cypher that modifies the graph,
+      or when the user asks to save, remember, or update stored knowledge
+
+# System-provided workflows. Restored from this file on every init. Not exported by
+# migrate-export (see docs/prompts/migrate-export.md "System-provided nodes").
+workflows:
+  - name: add-content
+    description: >-
+      Curate graph changes - decide if a write needs classification,
+      then name, attach domains, and refine descriptions
+    config: null
+    domains: [authoring, workflows]
+    triggers:
+      - idx: 1
+        text: Before any write-cypher that modifies the graph
+      - idx: 2
+        text: User asks to save, remember, or update stored knowledge
+    steps:
+      - idx: 1
+        text: Gate - does this change what the graph means?
+        notes: |
+          Skip (exit the workflow) if: typo or cosmetic edit with no scope change,
+          bookkeeping write (Root.version bump, reindex), bulk loader writes
+          (init or migrate), or the write originates from add-content itself
+          (avoid recursion).
+          Proceed if: new content node, edit to a routing field (text, body,
+          description, name), node moved between domains, or reword shifts scope.
+          Deletes: skip unless the removal empties a domain - then proceed to
+          step 6 and consider removing the domain too.
+      - idx: 2
+        text: Classify - match content against the cached domain catalog
+        notes: |
+          Match the content's meaning to every domain description. Always attach
+          the relevant type domain (rules, memories, skills, workflows).
+          Multiple contextual matches are normal and encouraged.
+      - idx: 3
+        text: Name - generate a short label (~5-6 words) from the content
+        notes: |
+          The label is how humans and Claude recall this node. Base it on the
+          content; avoid generic labels like "user preference" or "note".
+      - idx: 4
+        text: Attach - write the node with IN_DOMAIN edges to every matched domain
+        notes: |
+          A content node with only a type-domain edge is invisible to routing -
+          contextual edges are required.
+          If the new node is a Workflow, also create its Trigger and Step children
+          via HAS_TRIGGER / HAS_STEP in the same write. A workflow without triggers
+          and steps is useless.
+      - idx: 5
+        text: Refine the domain description if the content stretches its scope
+        notes: |
+          Edit the description so future routing catches similar content. Keep the
+          [tier] tag. Example: if you attach a rule about `git rebase` to the
+          `code` domain and `code`'s description doesn't hint at git operations,
+          add it. If the content fits cleanly under the existing description,
+          leave it alone.
+      - idx: 6
+        text: Create a new domain only if nothing fits
+        notes: |
+          Prefer expanding an existing description over creating a new domain.
+          New domains must follow the `[tier] Load when ...` shape. When removing
+          the last content node from a domain via step 1's delete path, consider
+          whether the empty domain should also be removed.

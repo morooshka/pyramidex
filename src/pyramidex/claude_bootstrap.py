@@ -2,10 +2,10 @@ import shutil
 from pathlib import Path
 
 CLAUDE_MD = Path.home() / ".claude" / "CLAUDE.md"
-BOOTSTRAP = (Path(__file__).parent.parent.parent / "assets" / "claude-bootstrap.md").resolve()
+BOOTSTRAP = (Path(__file__).parent / "assets" / "claude-bootstrap.md").resolve()
 
 
-def create_symlink(bootstrap_path=BOOTSTRAP, claude_md=CLAUDE_MD):
+def install_claude_bootstrap(bootstrap_path: Path = BOOTSTRAP, claude_md: Path = CLAUDE_MD) -> None:
     claude_md = Path(claude_md)
     bootstrap_path = Path(bootstrap_path).resolve()
 

@@ -4,18 +4,18 @@ Imports the user's existing configuration into the graph. Runs as part of `pyram
 
 ## Steps
 
-1. Analyse — AI-driven: `pyramidex migrate` prints the migration export prompt to the terminal.
+1. Analyse - AI-driven: `pyramidex migrate` prints the migration export prompt to the terminal.
    Claude (the active session) reads it, uses its tools to discover and analyse all source files,
    and writes `dump.yaml`
-2. Dump — `dump.yaml` written to repo root by Claude in step 1
-3. Init graph — Python: create `Root` node with queries and schema, create `Domain` nodes
-4. Load — Python: read `schema` from `dump.yaml`, create all nodes and relationships generically
-5. Verify — Python: re-read graph, compare against `dump.yaml`, report any mismatches
-6. Delete dump — ask user whether to delete `dump.yaml`; keep unconditionally if verify failed
+2. Dump - `dump.yaml` written to repo root by Claude in step 1
+3. Init graph - Python: create `Root` node with queries and schema, create `Domain` nodes
+4. Load - Python: read `schema` from `dump.yaml`, create all nodes and relationships generically
+5. Verify - Python: re-read graph, compare against `dump.yaml`, report any mismatches
+6. Delete dump - ask user whether to delete `dump.yaml`; keep unconditionally if verify failed
 
 ## Orchestration
 
-Step 1 runs in the active Claude session — no subprocess, no tool restrictions. Claude already
+Step 1 runs in the active Claude session - no subprocess, no tool restrictions. Claude already
 has the tools it needs (`Read`, `Glob`) and can follow file references autonomously. The prompt
 in `docs/prompts/migrate-export.md` is what `pyramidex migrate` outputs to the terminal for
 Claude to act on.
@@ -25,9 +25,9 @@ steps 3–5 directly without further AI involvement.
 
 After step 1, the orchestrator checks `meta.warnings` in the dump:
 
-- **No warnings** — proceed automatically to step 3
-- **Warnings present** — print each warning to the user and ask for confirmation to continue.
-  If the user declines, exit with a non-zero code and keep `dump.yaml` for inspection.
+1. No warnings - proceed automatically to step 3
+2. Warnings present - print each warning to the user and ask for confirmation to continue.
+   If the user declines, exit with a non-zero code and keep `dump.yaml` for inspection.
 
 ## dump.yaml
 
@@ -37,7 +37,7 @@ If `dump.yaml` already exists when migrate starts, the user is asked whether to 
 from it (skip step 1), or abort.
 
 The dump is self-describing. It contains a `schema` section that defines all node types, labels,
-relationships, and properties. The Python load script is schema-agnostic — it follows whatever is
+relationships, and properties. The Python load script is schema-agnostic - it follows whatever is
 in the dump without any hardcoded type knowledge. This means custom user-defined types (any structure
 the user invented in their config) are migrated correctly alongside standard types.
 
@@ -54,7 +54,7 @@ schema:
     node_label: <string|list>  # Neo4j label(s) to apply
     root_rel: <string>         # relationship from Root to this node
     properties: [<string>]     # list of properties to map from data
-    children:                  # optional — nested node types
+    children:                  # optional - nested node types
       - key: <string>
         node_label: <string|list>
         relationship: <string> # relationship from parent to this node
@@ -68,7 +68,7 @@ data:
         - <properties>
 ```
 
-### Example — standard types
+### Example - standard types
 
 ```yaml
 schema:
@@ -111,7 +111,7 @@ data:
         - {idx: 1, text: "..."}
 ```
 
-### Example — custom type inferred by AI
+### Example - custom type inferred by AI
 
 ```yaml
 schema:

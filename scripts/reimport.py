@@ -24,16 +24,16 @@ def main():
 
     driver = get_driver()
 
-    print("Dropping graph...")
+    print("Dropping graph ...")
     drop_all(driver)
 
-    print("Initialising Root and type domains...")
+    print("Initialising Root and type domains ...")
     init_graph(driver, TEMPLATE)
 
-    print(f"Loading {DUMP.name}...")
+    print(f"Loading {DUMP.name} ...")
     load_dump(driver, DUMP)
 
-    print("Verifying...")
+    print("Verifying ...")
     result = verify(driver, DUMP)
 
     driver.close()

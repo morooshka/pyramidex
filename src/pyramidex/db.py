@@ -1,8 +1,12 @@
-import os
-from neo4j import GraphDatabase
+from neo4j import Driver, GraphDatabase
+
+from pyramidex.config import resolve_neo4j
 
 
-def get_driver():
-    uri = os.environ["NEO4J_URI"]
-    auth = (os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"])
-    return GraphDatabase.driver(uri, auth=auth)
+def get_driver() -> Driver:
+    n = resolve_neo4j()
+    return GraphDatabase.driver(
+        n["uri"],
+        auth=(n["username"], n["password"]),
+        database=n.get("database") or None,
+    )
