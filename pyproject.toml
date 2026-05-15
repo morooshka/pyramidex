@@ -1,6 +1,6 @@
 [project]
 name = "pyramidex"
-version = "0.2.0"
+version = "0.2.1"
 description = "Replace static AI config files with a self-describing knowledge graph"
 readme = "README.md"
 requires-python = ">=3.11"
